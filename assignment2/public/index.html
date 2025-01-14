@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather, News, and Exchange Rates</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px auto;
+            max-width: 800px;
+            text-align: center;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        #weather, #news, #exchange {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        #map {
+            height: 400px;
+            margin-top: 20px;
+        }
+        .news-item {
+            margin-bottom: 15px;
+        }
+        .news-title {
+            font-weight: bold;
+        }
+        .news-link {
+            color: blue;
+            text-decoration: none;
+        }
+        .news-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Weather, News, and Exchange Rates</h1>
+
+    <section id="weather">
+        <h2>Weather</h2>
+        <form id="weather-form">
+            <input type="text" id="city-input" placeholder="Enter city" required>
+            <button type="submit">Get Weather</button>
+        </form>
+        <div id="weather-data">Loading...</div>
+        <div id="map"></div>
+    </section>
+
+    <section id="news">
+        <h2>News</h2>
+        <div id="news-data">Loading...</div>
+    </section>
+
+    <section id="exchange">
+        <h2>Exchange Rates</h2>
+        <div id="exchange-data">Loading...</div>
+    </section>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const weatherForm = document.getElementById('weather-form');
+        const weatherData = document.getElementById('weather-data');
+        const mapContainer = document.getElementById('map');
+        let map; // Переменная для карты
+
+        weatherForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const city = document.getElementById('city-input').value;
+            weatherData.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/weather?city=${city}`);
+                const data = await response.json();
+
+                weatherData.innerHTML = `
+                    <p>Temperature: ${data.main.temp}°C</p>
+                    <p>Feels Like: ${data.main.feels_like}°C</p>
+                    <p>Description: ${data.weather[0].description}</p>
+                    <p>Humidity: ${data.main.humidity}%</p>
+                    <p>Wind Speed: ${data.wind.speed} m/s</p>
+                `;
+
+                // Обновление карты
+                if (!map) {
+                    map = L.map('map').setView([data.coord.lat, data.coord.lon], 12);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                } else {
+                    map.setView([data.coord.lat, data.coord.lon], 12);
+                }
+
+                L.marker([data.coord.lat, data.coord.lon])
+                    .addTo(map)
+                    .bindPopup(`<b>${city}</b><br>Lat: ${data.coord.lat}, Lon: ${data.coord.lon}`)
+                    .openPopup();
+
+            } catch (error) {
+                weatherData.textContent = 'Error fetching weather data.';
+            }
+        });
+
+        // Fetch News
+        const newsData = document.getElementById('news-data');
+        async function fetchNews() {
+            try {
+                const response = await fetch('/news');
+                const articles = await response.json();
+                newsData.innerHTML = articles.map(article => `
+                    <div class="news-item">
+                        <p class="news-title">${article.title}</p>
+                        <p>Source: ${article.source.name || 'Unknown'}</p>
+                        <a class="news-link" href="${article.url}" target="_blank">Read more</a>
+                    </div>
+                `).join('');
+            } catch (error) {
+                newsData.textContent = 'Error fetching news.';
+            }
+        }
+        fetchNews();
+
+       // Fetch Exchange Rates
+        const exchangeData = document.getElementById('exchange-data');
+        async function fetchExchangeRates() {
+            try {
+                const response = await fetch('/exchange-rate');
+                const data = await response.json();
+                const rates = data.conversion_rates;
+
+                exchangeData.innerHTML = `
+                    <p>1 USD = ${rates.EUR} EUR</p>
+                    <p>1 USD = ${rates.GBP} GBP</p>
+                    <p>1 USD = ${rates.KZT} KZT</p>
+                `;
+            } catch (error) {
+                exchangeData.textContent = 'Error fetching exchange rates.';
+            }
+        }
+        fetchExchangeRates();
+    </script>
+</body>
+</html>
